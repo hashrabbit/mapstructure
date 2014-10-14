@@ -27,8 +27,9 @@ type DecodeHookFunc func(
 // AdvancedDecodeHookFunc is the callback function that can be used for
 // user side field value assignment.
 type AdvancedDecodeHookFunc func(
-	val *reflect.Value,
-	data interface{}) (interface{}, error)
+	name string,
+	data interface{},
+	val reflect.Value) (interface{}, error)
 
 // DecoderConfig is the configuration that is used to create a new decoder
 // and allows customization of various aspects of decoding.
@@ -200,9 +201,16 @@ func (d *Decoder) decode(name string, data interface{}, val reflect.Value) error
 	}
 
 	if d.config.AdvancedDecodeHook != nil {
-		data, err := d.config.AdvancedDecodeHook(&val, data)
-		if data == nil || err != nil {
+		// We have an AdvancedDecodeHook, so let's pre-process the data.
+		var err error
+		data, err = d.config.AdvancedDecodeHook(name, data, val)
+		if err != nil {
 			return err
+		}
+
+		if data == nil {
+			d.markDecoded(name)
+			return nil
 		}
 	}
 
@@ -243,13 +251,17 @@ func (d *Decoder) decode(name string, data interface{}, val reflect.Value) error
 		return fmt.Errorf("%s: unsupported type: %s", name, dataKind)
 	}
 
+	d.markDecoded(name)
+
+	return err
+}
+
+func (d *Decoder) markDecoded(name string) {
 	// If we reached here, then we successfully decoded SOMETHING, so
 	// mark the key as used if we're tracking metadata.
 	if d.config.Metadata != nil && name != "" {
 		d.config.Metadata.Keys = append(d.config.Metadata.Keys, name)
 	}
-
-	return err
 }
 
 // This decodes a basic type (bool, int, string, etc.) and sets the
