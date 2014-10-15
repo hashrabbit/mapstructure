@@ -212,6 +212,9 @@ func (d *Decoder) decode(name string, data interface{}, val reflect.Value) error
 			d.markDecoded(name)
 			return nil
 		}
+
+		// Reset dataVal as it may have changed
+		dataVal = reflect.ValueOf(data)
 	}
 
 	if d.config.DecodeHook != nil {
